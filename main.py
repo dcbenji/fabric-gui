@@ -9,6 +9,9 @@ import requests
 import markdown
 import logging
 import subprocess
+
+import markdown_utils
+
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QLabel, QLineEdit, QTextEdit, QVBoxLayout, QHBoxLayout, QPushButton, QRadioButton, QButtonGroup, QFileDialog, QMessageBox, QGroupBox, QGridLayout, QComboBox, QProgressBar, QTreeWidget, QTreeWidgetItem, QSplitter
 from PyQt5.QtGui import QFont, QIcon
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
@@ -332,7 +335,7 @@ class FabricExtractorGUI(QMainWindow):
 
     def copy_output(self):
         text = self.output_area.toPlainText()
-        QApplication.clipboard().setText(text)
+        markdown_utils.copy_raw_markdown(text)
 
     def apply_stylesheet(self):
         stylesheet_path = os.path.join(os.path.dirname(__file__), "styles.py")
@@ -349,15 +352,7 @@ class FabricExtractorGUI(QMainWindow):
             if os.path.exists(readme_path):
                 with open(readme_path, "r") as file:
                     content = file.read()
-                    markdown_command = ["pipx", "run", "markdown2", "-x", "fenced-code-blocks"]
-                    markdown_process = subprocess.Popen(
-                        markdown_command,
-                        stdin=subprocess.PIPE,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        text=True,
-                    )
-                    html, _ = markdown_process.communicate(content)
+                    html = markdown_utils.render_markdown(content)
                     self.info_area.setHtml(html)
             else:
                 self.info_area.setPlainText("README.md not available for this pattern.")
@@ -366,7 +361,8 @@ class FabricExtractorGUI(QMainWindow):
             if os.path.exists(system_path):
                 with open(system_path, "r") as file:
                     content = file.read()
-                    self.info_area.setPlainText(content)
+                    html = markdown_utils.render_markdown(content)
+                    self.info_area.setHtml(html)
             else:
                 self.info_area.setPlainText("system.md not available for this pattern.")
 
