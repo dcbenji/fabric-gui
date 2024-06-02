@@ -9,6 +9,19 @@ from PyQt5.QtGui import QFont, QIcon
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from api_utils import FabricWorkerThread
 
+from error_handling import (
+    handle_api_key_error,
+    handle_network_error,
+    handle_unsupported_file_format,
+    handle_missing_required_data,
+    handle_invalid_user_input,
+    InvalidAPIKeyError,
+    NetworkConnectionError,
+    UnsupportedFileFormatError,
+    MissingRequiredDataError,
+    InvalidUserInputError
+)
+
 class FabricExtractorGUI(QMainWindow):
     def __init__(self, app):
         super().__init__()
@@ -171,21 +184,28 @@ class FabricExtractorGUI(QMainWindow):
         return info_group
 
     def select_file(self):
-        file_path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Select File",
-            "",
-            "Text Files (*.txt);;Audio Files (*.mp3 *.wav *.m4a);;All Files (*)",
-        )
-        if file_path:
-            if file_path.lower().endswith((".txt", ".md")):
-                with open(file_path, "r") as file:
-                    content = file.read()
-                self.input_area.setPlainText(content)
-            elif file_path.lower().endswith((".mp3", ".wav", ".m4a")):
-                self.input_area.setPlainText(file_path)
-            else:
-                QMessageBox.warning(self, "Invalid File", "Please select a valid text or audio file.")
+        try:
+            file_path, _ = QFileDialog.getOpenFileName(
+                self,
+                "Select File",
+                "",
+                "Text Files (*.txt);;Audio Files (*.mp3 *.wav *.m4a);;All Files (*)",
+            )
+            if file_path:
+                if file_path.lower().endswith((".txt", ".md")):
+                    with open(file_path, "r") as file:
+                        content = file.read()
+                    self.input_area.setPlainText(content)
+                elif file_path.lower().endswith((".mp3", ".wav", ".m4a")):
+                    self.input_area.setPlainText(file_path)
+                else:
+                    handle_unsupported_file_format(self)
+        except UnsupportedFileFormatError:
+            # Error handling for unsupported file format
+            pass
+        except Exception as e:
+            logger.exception("Error in select_file:")
+            QMessageBox.critical(self, "Error", f"An unexpected error occurred: {str(e)}")
 
     def get_available_patterns(self):
         patterns_dir = "/Users/ben/fabric/patterns"
@@ -198,48 +218,56 @@ class FabricExtractorGUI(QMainWindow):
         return patterns
 
     def run_fabric_extraction(self):
-        if self.worker_thread and self.worker_thread.isRunning():
-            return
+        try:
+            if self.worker_thread and self.worker_thread.isRunning():
+                return
 
-        input_text = self.input_area.toPlainText().strip()
+            input_text = self.input_area.toPlainText().strip()
 
-        if self.is_youtube_link(input_text):
-            video_id = self.extract_video_id(input_text)
-            if video_id:
-                yt_command = ["yt", "--transcript", f"https://youtu.be/{video_id}"]
-                yt_result = subprocess.run(
-                    yt_command,
+            if self.is_youtube_link(input_text):
+                video_id = self.extract_video_id(input_text)
+                if video_id:
+                    yt_command = ["yt", "--transcript", f"https://youtu.be/{video_id}"]
+                    yt_result = subprocess.run(
+                        yt_command,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                    )
+                    input_text = yt_result.stdout
+                else:
+                    handle_invalid_user_input(self)
+                    return
+            elif input_text.lower().endswith((".mp3", ".wav", ".m4a")):
+                ts_command = ["ts", input_text]
+                ts_result = subprocess.run(
+                    ts_command,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True,
                 )
-                input_text = yt_result.stdout
-            else:
-                return
-        elif input_text.lower().endswith((".mp3", ".wav", ".m4a")):
-            ts_command = ["ts", input_text]
-            ts_result = subprocess.run(
-                ts_command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-            if ts_result.returncode == 0:
-                input_text = ts_result.stdout
-            else:
-                QMessageBox.critical(self, "Error", f"An error occurred during audio transcription:\n\n{ts_result.stderr}")
-                return
+                if ts_result.returncode == 0:
+                    input_text = ts_result.stdout
+                else:
+                    handle_unsupported_file_format(self)
+                    return
 
-        pattern = self.pattern_combo.currentText()
-        model = self.model_combo.currentText()
+            pattern = self.pattern_combo.currentText()
+            model = self.model_combo.currentText()
 
-        self.worker_thread = FabricWorkerThread(input_text, pattern, model)
-        self.worker_thread.finished.connect(self.handle_fabric_result)
-        self.progress_bar.setVisible(True)
-        self.progress_bar.setMaximum(0)
-        self.progress_bar.setMinimum(0)
-        self.progress_bar.setValue(-1)
-        self.worker_thread.start()
+            self.worker_thread = FabricWorkerThread(input_text, pattern, model)
+            self.worker_thread.finished.connect(self.handle_fabric_result)
+            self.progress_bar.setVisible(True)
+            self.progress_bar.setMaximum(0)
+            self.progress_bar.setMinimum(0)
+            self.progress_bar.setValue(-1)
+            self.worker_thread.start()
+        except InvalidUserInputError:
+            # Error handling for invalid user input
+            pass
+        except Exception as e:
+            logger.exception("Error in run_fabric_extraction:")
+            QMessageBox.critical(self, "Error", f"An unexpected error occurred: {str(e)}")
 
     def is_youtube_link(self, link):
         youtube_regex = re.compile(r'(https?://)?(www\.)?(youtube|youtu|youtube-nocookie)\.(com|be)/(watch\?v=|embed/|v/|.+\?v=)?([^&=%\?]{11})')
@@ -257,7 +285,12 @@ class FabricExtractorGUI(QMainWindow):
             logger.debug("Handling fabric result")
             if error:
                 logger.error(f"Fabric extraction error: {error}")
-                QMessageBox.critical(self, "Error", f"An error occurred during fabric extraction:\n\n{error}")
+                if "InvalidAPIKeyError" in error:
+                    handle_api_key_error(self)
+                elif "NetworkConnectionError" in error:
+                    handle_network_error(self)
+                else:
+                    QMessageBox.critical(self, "Error", f"An error occurred during fabric extraction:\n\n{error}")
             else:
                 logger.debug("Setting output text")
                 self.output_area.setPlainText(output)
@@ -267,17 +300,23 @@ class FabricExtractorGUI(QMainWindow):
                 else:
                     logger.debug("Hiding WOW widget")
                     self.hide_wow_widget()
+        except InvalidAPIKeyError:
+            # Error handling for invalid API key
+            pass
+        except NetworkConnectionError:
+            # Error handling for network connection error
+            pass
         except Exception as e:
             logger.exception("Error in handle_fabric_result:")
-            QMessageBox.critical(self, "Error", f"An error occurred while processing the result:\n\n{str(e)}")
+            QMessageBox.critical(self, "Error", f"An unexpected error occurred: {str(e)}")
 
-        logger.debug("Hiding progress bar")
-        self.progress_bar.setVisible(False)
-        
-        if self.worker_thread:
-            self.worker_thread.wait()  # Wait for the worker thread to finish
-            logger.debug("Resetting worker thread")
-            self.worker_thread = None
+    logger.debug("Hiding progress bar")
+    self.progress_bar.setVisible(False)
+
+    if self.worker_thread:
+        self.worker_thread.wait()  # Wait for the worker thread to finish
+        logger.debug("Resetting worker thread")
+        self.worker_thread = None
 
     def display_wow_data(self, json_data):
         if not self.wow_widget:
