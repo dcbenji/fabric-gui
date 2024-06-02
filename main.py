@@ -2,33 +2,18 @@
 # -*- coding: utf-8 -*-
 
 import sys
-import os
-import subprocess
-import re
-import logging
 import json
-from PyQt5.QtWidgets import (
-    QApplication,
-    QMainWindow,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
-    QTextEdit,
-    QPushButton,
-    QComboBox,
-    QFileDialog,
-    QWidget,
-    QProgressBar,
-    QGridLayout,
-    QGroupBox,
-    QMessageBox,
-    QSplitter,
-    QRadioButton,
-    QTreeWidget,
-    QTreeWidgetItem,
-)
-from PyQt5.QtGui import QIcon
+import os
+import re
+import requests
+import markdown
+import logging
+import subprocess
+from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QLabel, QLineEdit, QTextEdit, QVBoxLayout, QHBoxLayout, QPushButton, QRadioButton, QButtonGroup, QFileDialog, QMessageBox, QGroupBox, QGridLayout, QComboBox, QProgressBar, QTreeWidget, QTreeWidgetItem, QSplitter
+from PyQt5.QtGui import QFont, QIcon
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
+
+from config import load_config, save_config, get_api_key, set_api_key, get_api_endpoint, set_api_endpoint, get_default_model, set_default_model, get_temperature, set_temperature, get_max_tokens, set_max_tokens, get_theme, set_theme
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -44,6 +29,7 @@ class FabricWorkerThread(QThread):
 
     def run(self):
         try:
+            logger.debug("Starting fabric extraction")
             fabric_command = [
                 "fabric",
                 "--model",
@@ -51,6 +37,7 @@ class FabricWorkerThread(QThread):
                 "-sp",
                 self.pattern,
             ]
+            logger.debug(f"Running fabric command: {fabric_command}")
             self.fabric_result = subprocess.run(
                 fabric_command,
                 input=self.input_text,
@@ -58,6 +45,7 @@ class FabricWorkerThread(QThread):
                 stderr=subprocess.PIPE,
                 text=True,
             )
+            logger.debug("Fabric extraction completed")
             self.output = self.fabric_result.stdout
             self.error = self.fabric_result.stderr
 
@@ -74,6 +62,9 @@ class FabricWorkerThread(QThread):
         except Exception as e:
             logger.exception("An error occurred during fabric extraction.")
             self.finished.emit("", str(e), {})
+
+        finally:
+            self.quit()
 
 class FabricExtractorGUI(QMainWindow):
     def __init__(self, app):
@@ -319,18 +310,31 @@ class FabricExtractorGUI(QMainWindow):
         return None
 
     def handle_fabric_result(self, output, error, json_data):
-        if error:
-            logger.error(f"Fabric extraction error: {error}")
-            QMessageBox.critical(self, "Error", f"An error occurred during fabric extraction:\n\n{error}")
-        else:
-            self.output_area.setPlainText(output)
-            if json_data:
-                self.display_wow_data(json_data)
+        try:
+            logger.debug("Handling fabric result")
+            if error:
+                logger.error(f"Fabric extraction error: {error}")
+                QMessageBox.critical(self, "Error", f"An error occurred during fabric extraction:\n\n{error}")
             else:
-                self.hide_wow_widget()
+                logger.debug("Setting output text")
+                self.output_area.setPlainText(output)
+                if json_data:
+                    logger.debug("Displaying WOW data")
+                    self.display_wow_data(json_data)
+                else:
+                    logger.debug("Hiding WOW widget")
+                    self.hide_wow_widget()
+        except Exception as e:
+            logger.exception("Error in handle_fabric_result:")
+            QMessageBox.critical(self, "Error", f"An error occurred while processing the result:\n\n{str(e)}")
 
+        logger.debug("Hiding progress bar")
         self.progress_bar.setVisible(False)
-        self.worker_thread = None
+        
+        if self.worker_thread:
+            self.worker_thread.wait()  # Wait for the worker thread to finish
+            logger.debug("Resetting worker thread")
+            self.worker_thread = None
 
     def display_wow_data(self, json_data):
         if not self.wow_widget:
@@ -378,7 +382,7 @@ class FabricExtractorGUI(QMainWindow):
         QApplication.clipboard().setText(text)
 
     def apply_stylesheet(self):
-        stylesheet_path = os.path.join(os.path.dirname(__file__), "fabric_style.qss")
+        stylesheet_path = os.path.join(os.path.dirname(__file__), "styles.py")
         with open(stylesheet_path, "r") as file:
             stylesheet = file.read()
             self.setStyleSheet(stylesheet)
@@ -423,8 +427,15 @@ class FabricExtractorGUI(QMainWindow):
         if self.wow_widget:
             self.wow_widget.show()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
+    config = load_config()
+
     app = QApplication(sys.argv)
-    window = FabricExtractorGUI(app)
-    window.show()
-    sys.exit(app.exec_())
+    app.setStyleSheet(open("styles.py", "r").read())
+
+    main_window = FabricExtractorGUI(config)
+    main_window.show()
+
+    result = app.exec_()
+    save_config(config)
+    sys.exit(result)
