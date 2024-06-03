@@ -36,15 +36,6 @@ def set_api_key(api_key):
     config["api_key"] = api_key
     save_config(config)
 
-def get_api_endpoint():
-    config = load_config()
-    return config["api_endpoint"]
-
-def set_api_endpoint(api_endpoint):
-    config = load_config()
-    config["api_endpoint"] = api_endpoint
-    save_config(config)
-
 def get_default_model():
     config = load_config()
     return config["default_model"]
