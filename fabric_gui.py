@@ -8,6 +8,7 @@ from PyQt5.QtGui import QFont, QIcon
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from fabric_core import FabricCore, FabricWorkerThread, handle_api_key_error, handle_network_error, handle_unsupported_file_format, handle_missing_required_data, handle_invalid_user_input, logger
 from error_handling import InvalidAPIKeyError, NetworkConnectionError, UnsupportedFileFormatError, MissingRequiredDataError, InvalidUserInputError
+import os
 import markdown_utils
 
 class FabricExtractorGUI(QMainWindow):
@@ -262,7 +263,8 @@ class FabricExtractorGUI(QMainWindow):
                     QMessageBox.critical(self, "Error", f"An error occurred during fabric extraction:\n\n{error}")
             else:
                 logger.debug("Setting output text")
-                self.output_area.setPlainText(output)
+                rendered_output = markdown_utils.render_markdown(output)
+                self.output_area.setHtml(rendered_output)
                 if json_data:
                     logger.debug("Displaying WOW data")
                     self.fabric_core.display_wow_data(json_data)
@@ -314,8 +316,23 @@ class FabricExtractorGUI(QMainWindow):
         pass
 
     def update_pattern_info(self):
-        # GUI-specific pattern information update code
-        pass
+        current_pattern = self.pattern_combo.currentText()
+        if current_pattern:
+            pattern_dir = os.path.join("/Users/ben/fabric/patterns", current_pattern)
+            if self.readme_radio.isChecked():
+                file_path = os.path.join(pattern_dir, "README.md")
+            else:
+                file_path = os.path.join(pattern_dir, "system.md")
+            
+            if os.path.exists(file_path):
+                with open(file_path, "r") as file:
+                    content = file.read()
+                rendered_content = markdown_utils.render_markdown(content)
+                self.info_area.setHtml(rendered_content)
+            else:
+                self.info_area.clear()
+        else:
+            self.info_area.clear()
 
     def handle_wow_pattern(self):
         if self.pattern_combo.currentText() == "get_wow_per_minute":
