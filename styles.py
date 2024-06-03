@@ -1,30 +1,30 @@
 /* Overall Application */
 
 @font-face {
-    font-family: "Inter";
-    src: url(../fonts/Inter-Regular.ttf); /* Relative path to fonts folder */
+    font-family: "IBM Plex Sans";
+    src: url(../fonts/IBMPlexSans-Regular.ttf);
 }
 
 @font-face {
-    font-family: "Inter";
-    src: url(../fonts/Inter-Bold.ttf); /* Relative path to fonts folder */
+    font-family: "IBM Plex Sans";
+    src: url(../fonts/IBMPlexSans-Bold.ttf);
     font-weight: bold;
 }
 
 QMainWindow {
-    background-color: #161616; /* Carbon dark background */
+    background-color: #262626;
 }
 
 QWidget {
     background-color: transparent;
-    color: #FFFFFF;
-    font-family: "Inter", sans-serif; /* Elegant sans-serif font */
+    color: #F4F4F4;
+    font-family: "IBM Plex Sans", sans-serif;
     font-size: 14px;
 }
 
 /* Group Boxes */
 QGroupBox {
-    border: 1px solid #393939; /* Subtle Carbon border */
+    border: 1px solid #393939;
     border-radius: 4px;
     padding: 15px;
 }
@@ -37,16 +37,16 @@ QGroupBox::title {
 
 /* Text Input and Output */
 QTextEdit {
-    background-color: #262626; /* Darker background */
+    background-color: #161616;
     border: 1px solid #393939;
     border-radius: 4px;
     padding: 10px;
-    font-family: "IBM Plex Mono", monospace; /* Monospace for code */
+    font-family: "IBM Plex Mono", monospace;
 }
 
 /* Buttons */
 QPushButton {
-    background-color: #0F62FE; /* IBM Carbon blue */
+    background-color: #0F62FE;
     color: white;
     border: none;
     border-radius: 4px;
@@ -54,24 +54,37 @@ QPushButton {
 }
 
 QPushButton:hover {
-    background-color: #0353E9; /* Slightly darker on hover */
+    background-color: #0353E9;
+}
+
+QPushButton:pressed {
+    background-color: #0530AD;
 }
 
 /* Combo Boxes */
 QComboBox {
-    background-color: #262626;
+    background-color: #393939;
     border: 1px solid #393939;
     border-radius: 4px;
     padding: 8px;
-    min-height: 32px; /* Consistent with button height */
+    min-height: 32px;
 }
 
 QComboBox QAbstractItemView {
-    background-color: #262626;
+    background-color: #393939;
     selection-background-color: #0F62FE;
 }
 
-/* Removed QComboBox::down-arrow rule */ 
+QComboBox::drop-down {
+    border: none;
+}
+
+QComboBox::down-arrow {
+    image: url(../icons/chevron-down.svg);
+    width: 16px;
+    height: 16px;
+    margin-right: 10px;
+}
 
 /* Progress Bar */
 QProgressBar {
@@ -95,7 +108,7 @@ QTreeWidget {
 }
 
 QTreeWidget::item {
-    color: #FFFFFF;
+    color: #F4F4F4;
 }
 
 QTreeWidget::item:selected {
@@ -112,4 +125,32 @@ QTreeWidget::branch:selected {
 
 QTreeWidget::branch:hover {
     background-color: #0353E9;
+}
+
+/* Radio Buttons */
+QRadioButton {
+    spacing: 5px;
+}
+
+QRadioButton::indicator {
+    width: 16px;
+    height: 16px;
+}
+
+QRadioButton::indicator:unchecked {
+    image: url(../icons/radio-unchecked.svg);
+}
+
+QRadioButton::indicator:checked {
+    image: url(../icons/radio-checked.svg);
+}
+
+/* Splitter */
+QSplitter::handle {
+    background-color: #393939;
+    width: 1px;
+}
+
+QSplitter::handle:hover {
+    background-color: #0F62FE;
 }

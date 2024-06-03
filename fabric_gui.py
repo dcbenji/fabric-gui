@@ -16,9 +16,16 @@ class FabricExtractorGUI(QMainWindow):
         super().__init__()
         self.app = app
         self.fabric_core = FabricCore()
-        self.initUI()
+        self.output = ""
         self.worker_thread = None
         self.wow_widget = None
+
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setMinimumSize(200, 20)
+        self.progress_bar.setValue(0)
+        self.progress_bar.setTextVisible(False)
+
+        self.initUI()
         
     def clear_all(self):
         self.input_area.clear()
@@ -52,8 +59,8 @@ class FabricExtractorGUI(QMainWindow):
 
         self.apply_stylesheet()
 
-        self.pattern_combo.currentIndexChanged.connect(self.update_pattern_info)
         self.pattern_combo.currentIndexChanged.connect(self.handle_wow_pattern)
+        self.pattern_combo.currentIndexChanged.connect(self.update_info_display)
 
     def create_left_layout(self):
         left_layout = QVBoxLayout()
@@ -62,12 +69,10 @@ class FabricExtractorGUI(QMainWindow):
         input_group = self.create_input_group()
         settings_group = self.create_settings_group()
         button_layout = self.create_button_layout()
-        output_group = self.create_output_group()
 
         left_layout.addWidget(input_group)
         left_layout.addWidget(settings_group)
         left_layout.addLayout(button_layout)
-        left_layout.addWidget(output_group)
         left_layout.addWidget(self.progress_bar)
 
         return left_layout
@@ -77,8 +82,17 @@ class FabricExtractorGUI(QMainWindow):
         right_layout.setSpacing(10)
 
         info_group = self.create_info_group()
-
         right_layout.addWidget(info_group)
+
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(10)
+        clear_output_button = QPushButton(QIcon("icons/clear_output.png"), "Clear Output")
+        clear_output_button.clicked.connect(self.clear_output)
+        button_layout.addWidget(clear_output_button)
+        copy_button = QPushButton(QIcon("icons/copy.png"), "Copy")
+        copy_button.clicked.connect(self.copy_output)
+        button_layout.addWidget(copy_button)
+        right_layout.addLayout(button_layout)
 
         return right_layout
 
@@ -132,33 +146,8 @@ class FabricExtractorGUI(QMainWindow):
         button_layout.addWidget(clear_all_button)
         return button_layout
 
-    def create_output_group(self):
-        output_group = QGroupBox("Output")
-        output_layout = QVBoxLayout()
-        output_layout.setSpacing(10)
-        self.output_area = QTextEdit()
-        self.output_area.setReadOnly(True)
-        output_layout.addWidget(self.output_area)
-        output_button_layout = QHBoxLayout()
-        output_button_layout.setSpacing(10)
-        clear_output_button = QPushButton(QIcon("icons/clear_output.png"), "Clear Output")
-        clear_output_button.clicked.connect(self.clear_output)
-        output_button_layout.addWidget(clear_output_button)
-        copy_button = QPushButton(QIcon("icons/copy.png"), "Copy")
-        copy_button.clicked.connect(self.copy_output)
-        output_button_layout.addWidget(copy_button)
-        output_layout.addLayout(output_button_layout)
-        output_group.setLayout(output_layout)
-
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setMinimumSize(200, 20)
-        self.progress_bar.setValue(0)
-        self.progress_bar.setTextVisible(False)
-
-        return output_group
-
     def create_info_group(self):
-        info_group = QGroupBox("Pattern Information")
+        info_group = QGroupBox("Information")
         info_layout = QVBoxLayout()
         self.info_area = QTextEdit()
         self.info_area.setReadOnly(True)
@@ -166,13 +155,16 @@ class FabricExtractorGUI(QMainWindow):
 
         self.readme_radio = QRadioButton("README.md")
         self.readme_radio.setChecked(True)
-        self.readme_radio.toggled.connect(self.update_pattern_info)
+        self.readme_radio.toggled.connect(self.update_info_display)
         self.system_radio = QRadioButton("system.md")
-        self.system_radio.toggled.connect(self.update_pattern_info)
+        self.system_radio.toggled.connect(self.update_info_display)
+        self.output_radio = QRadioButton("Output")
+        self.output_radio.toggled.connect(self.update_info_display)
 
         radio_layout = QHBoxLayout()
         radio_layout.addWidget(self.readme_radio)
         radio_layout.addWidget(self.system_radio)
+        radio_layout.addWidget(self.output_radio)
         info_layout.addLayout(radio_layout)
 
         info_group.setLayout(info_layout)
@@ -262,9 +254,10 @@ class FabricExtractorGUI(QMainWindow):
                 else:
                     QMessageBox.critical(self, "Error", f"An error occurred during fabric extraction:\n\n{error}")
             else:
-                logger.debug("Setting output text")
-                rendered_output = markdown_utils.render_markdown(output)
-                self.output_area.setHtml(rendered_output)
+                logger.debug("Storing output")
+                self.output = output
+                if self.output_radio.isChecked():
+                    self.update_info_display()
                 if json_data:
                     logger.debug("Displaying WOW data")
                     self.fabric_core.display_wow_data(json_data)
@@ -299,7 +292,8 @@ class FabricExtractorGUI(QMainWindow):
         pass
 
     def clear_output(self):
-        self.output_area.clear()
+        self.output = ""
+        self.update_info_display()
         self.fabric_core.hide_wow_widget()
 
     def clear_all(self):
@@ -308,31 +302,34 @@ class FabricExtractorGUI(QMainWindow):
         self.fabric_core.hide_wow_widget()
 
     def copy_output(self):
-        text = self.output_area.toPlainText()
-        self.fabric_core.copy_output(text)
+        self.fabric_core.copy_output(self.output)
 
     def apply_stylesheet(self):
         # GUI-specific stylesheet application code
         pass
 
-    def update_pattern_info(self):
-        current_pattern = self.pattern_combo.currentText()
-        if current_pattern:
-            pattern_dir = os.path.join("/Users/ben/fabric/patterns", current_pattern)
-            if self.readme_radio.isChecked():
-                file_path = os.path.join(pattern_dir, "README.md")
-            else:
-                file_path = os.path.join(pattern_dir, "system.md")
-            
-            if os.path.exists(file_path):
-                with open(file_path, "r") as file:
-                    content = file.read()
-                rendered_content = markdown_utils.render_markdown(content)
-                self.info_area.setHtml(rendered_content)
+    def update_info_display(self):
+        if self.output_radio.isChecked():
+            rendered_output = markdown_utils.render_markdown(self.output)
+            self.info_area.setHtml(rendered_output)
+        else:
+            current_pattern = self.pattern_combo.currentText()
+            if current_pattern:
+                pattern_dir = os.path.join("/Users/ben/fabric/patterns", current_pattern)
+                if self.readme_radio.isChecked():
+                    file_path = os.path.join(pattern_dir, "README.md")
+                else:
+                    file_path = os.path.join(pattern_dir, "system.md")
+                
+                if os.path.exists(file_path):
+                    with open(file_path, "r") as file:
+                        content = file.read()
+                    rendered_content = markdown_utils.render_markdown(content)
+                    self.info_area.setHtml(rendered_content)
+                else:
+                    self.info_area.clear()
             else:
                 self.info_area.clear()
-        else:
-            self.info_area.clear()
 
     def handle_wow_pattern(self):
         if self.pattern_combo.currentText() == "get_wow_per_minute":
