@@ -18,6 +18,11 @@ class FabricExtractorGUI(QMainWindow):
         self.initUI()
         self.worker_thread = None
         self.wow_widget = None
+        
+    def clear_all(self):
+        self.input_area.clear()
+        self.output_area.clear()
+        self.fabric_core.hide_wow_widget()
 
     def initUI(self):
         self.setWindowTitle("Fabric Extractor")
@@ -197,33 +202,43 @@ class FabricExtractorGUI(QMainWindow):
             QMessageBox.critical(self, "Error", f"An unexpected error occurred: {str(e)}")
 
     def run_fabric_extraction(self):
-            try:
-                if self.worker_thread and self.worker_thread.isRunning():
+        try:
+            if self.worker_thread and self.worker_thread.isRunning():
+                logger.debug("Worker thread is already running")
+                return
+
+            input_text = self.input_area.toPlainText().strip()
+            logger.debug(f"Input text: {input_text}")
+
+            if self.fabric_core.is_youtube_link(input_text):
+                video_id = self.fabric_core.extract_video_id(input_text)
+                if video_id:
+                    logger.debug(f"Extracting transcript from YouTube video: {video_id}")
+                    input_text = self.fabric_core.get_transcript_from_youtube(f"https://youtu.be/{video_id}")
+                else:
+                    logger.debug("Invalid YouTube link")
+                    handle_invalid_user_input(self)
                     return
+            elif input_text.lower().endswith((".mp3", ".wav", ".m4a")):
+                logger.debug(f"Extracting transcript from audio file: {input_text}")
+                input_text = self.fabric_core.get_transcript_from_audio(input_text)
 
-                input_text = self.input_area.toPlainText().strip()
+            pattern = self.pattern_combo.currentText()
+            model = self.model_combo.currentText()
+            logger.debug(f"Selected pattern: {pattern}")
+            logger.debug(f"Selected model: {model}")
 
-                if self.fabric_core.is_youtube_link(input_text):
-                    video_id = self.fabric_core.extract_video_id(input_text)
-                    if video_id:
-                        input_text = self.fabric_core.get_transcript_from_youtube(f"https://youtu.be/{video_id}")
-                    else:
-                        handle_invalid_user_input(self)
-                        return
-                elif input_text.lower().endswith((".mp3", ".wav", ".m4a")):
-                    input_text = self.fabric_core.get_transcript_from_audio(input_text)
-
-                pattern = self.pattern_combo.currentText()
-                model = self.model_combo.currentText()
-
-                self.worker_thread = self.fabric_core.run_fabric_extraction(input_text, pattern, model)
-                self.worker_thread.start()
-            except InvalidUserInputError:
-                # Error handling for invalid user input
-                pass
-            except Exception as e:
-                logger.exception("Error in run_fabric_extraction:")
-                QMessageBox.critical(self, "Error", f"An unexpected error occurred: {str(e)}")
+            self.worker_thread = FabricWorkerThread(input_text, pattern, model)
+            self.worker_thread.started.connect(self.show_progress_bar)
+            self.worker_thread.finished.connect(self.handle_fabric_result)
+            logger.debug("Starting worker thread")
+            self.worker_thread.start()
+        except InvalidUserInputError:
+            # Error handling for invalid user input
+            logger.exception("Invalid user input")
+        except Exception as e:
+            logger.exception("Error in run_fabric_extraction:")
+            QMessageBox.critical(self, "Error", f"An unexpected error occurred: {str(e)}")
 
     def show_progress_bar(self):
         self.progress_bar.setVisible(True)
@@ -268,8 +283,9 @@ class FabricExtractorGUI(QMainWindow):
         self.progress_bar.setVisible(False)
 
         if self.worker_thread:
+            logger.debug("Waiting for worker thread to finish")
             self.worker_thread.wait()  # Wait for the worker thread to finish
-            logger.debug("Resetting worker thread")
+            logger.debug("Worker thread finished")
             self.worker_thread = None
 
     def create_wow_widget(self):

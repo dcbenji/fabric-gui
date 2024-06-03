@@ -31,49 +31,50 @@ class FabricWorkerThread(QThread):
         self.pattern = pattern
         self.model = model
 
-def run(self):
-    try:
-        self.started.emit()
-        logger.debug("Starting fabric extraction")
-        fabric_command = [
-            "fabric",
-            "--model",
-            self.model,
-            "-sp",
-            self.pattern,
-        ]
-        logger.debug(f"Running fabric command: {fabric_command}")
-        self.fabric_result = subprocess.run(
-            fabric_command,
-            input=self.input_text,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-        logger.debug("Fabric extraction completed")
-        self.output = self.fabric_result.stdout
-        self.error = self.fabric_result.stderr
+    def run(self):
+        try:
+            logger.debug("Worker thread started")
+            self.started.emit()
+            logger.debug("Starting fabric extraction")
+            fabric_command = [
+                "fabric",
+                "--model",
+                self.model,
+                "-sp",
+                self.pattern,
+            ]
+            logger.debug(f"Running fabric command: {fabric_command}")
+            self.fabric_result = subprocess.run(
+                fabric_command,
+                input=self.input_text,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            logger.debug("Fabric extraction completed")
+            self.output = self.fabric_result.stdout
+            self.error = self.fabric_result.stderr
+            logger.debug(f"Output: {self.output}")
+            logger.debug(f"Error: {self.error}")
 
-        if self.pattern == "get_wow_per_minute":
-            try:
-                json_output = json.loads(self.output)
-                self.progress.emit(100)
-                self.finished.emit(self.output, self.error, json_output)
-            except json.JSONDecodeError as e:
-                logger.exception("Error decoding JSON output")
-                self.progress.emit(100)
-                self.finished.emit("", str(e), {})
-        else:
-            self.progress.emit(100)
-            self.finished.emit(self.output, self.error, {})
+            if self.pattern == "get_wow_per_minute":
+                try:
+                    json_output = json.loads(self.output)
+                    logger.debug(f"JSON output: {json_output}")
+                    self.finished.emit(self.output, self.error, json_output)
+                except json.JSONDecodeError as e:
+                    logger.exception("Error decoding JSON output")
+                    self.finished.emit("", str(e), {})
+            else:
+                self.finished.emit(self.output, self.error, {})
 
-    except Exception as e:
-        logger.exception("An error occurred during fabric extraction.")
-        self.progress.emit(100)
-        self.finished.emit("", str(e), {})
+        except Exception as e:
+            logger.exception("An error occurred during fabric extraction.")
+            self.finished.emit("", str(e), {})
 
-    finally:
-        self.quit()
+        finally:
+            logger.debug("Worker thread finished")
+            self.quit()
 
 class FabricCore:
     def __init__(self):

@@ -57,22 +57,6 @@ QPushButton:hover {
     background-color: #0353E9; /* Slightly darker on hover */
 }
 
-QPushButton#file_button::icon {
-    image: url(../icons/file.svg); /* Relative path to icons folder */
-}
-QPushButton#extract_button::icon {
-    image: url(../icons/extract.svg); /* Relative path to icons folder */
-}
-QPushButton#clear_all_button::icon {
-    image: url(../icons/clear_all.svg); /* Relative path to icons folder */
-}
-QPushButton#clear_output_button::icon {
-    image: url(../icons/clear_output.svg); /* Relative path to icons folder */
-}
-QPushButton#copy_button::icon {
-    image: url(../icons/copy.svg); /* Relative path to icons folder */
-}
-
 /* Combo Boxes */
 QComboBox {
     background-color: #262626;
@@ -87,9 +71,7 @@ QComboBox QAbstractItemView {
     selection-background-color: #0F62FE;
 }
 
-QComboBox::down-arrow {
-    image: url(../icons/dropdown.svg); /* Relative path to icons folder */
-}
+/* Removed QComboBox::down-arrow rule */ 
 
 /* Progress Bar */
 QProgressBar {
