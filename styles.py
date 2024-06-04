@@ -1,47 +1,43 @@
 /* Overall Application */
-
 @font-face {
-    font-family: "IBM Plex Sans";
-    src: url(../fonts/IBMPlexSans-Regular.ttf);
-}
-
-@font-face {
-    font-family: "IBM Plex Sans";
-    src: url(../fonts/IBMPlexSans-Bold.ttf);
-    font-weight: bold;
+  font-family: "IBM Plex Sans";
+  src: url("fonts/IBMPlexSans-Regular.ttf") format("truetype"),
+       url("fonts/IBMPlexSans-Bold.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
 }
 
 QMainWindow {
-    background-color: #262626;
+  background-color: #262626;
 }
 
 QWidget {
-    background-color: transparent;
-    color: #F4F4F4;
-    font-family: "IBM Plex Sans", sans-serif;
-    font-size: 14px;
+  background-color: transparent;
+  color: #F4F4F4;
+  font-family: "IBM Plex Sans", sans-serif;
+  font-size: 14px;
 }
 
 /* Group Boxes */
 QGroupBox {
-    border: 1px solid #393939;
-    border-radius: 4px;
-    padding: 15px;
+  border: 1px solid #393939;
+  border-radius: 4px;
+  padding: 15px;
 }
 
 QGroupBox::title {
-    font-size: 14px;
-    font-weight: bold;
-    margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: bold;
+  margin-bottom: 10px;
 }
 
 /* Text Input and Output */
 QTextEdit {
-    background-color: #161616;
-    border: 1px solid #393939;
-    border-radius: 4px;
-    padding: 10px;
-    font-family: "IBM Plex Mono", monospace;
+  background-color: #161616;
+  border: 1px solid #393939;
+  border-radius: 4px;
+  padding: 10px;
+  font-family: "IBM Plex Mono", monospace;  /* Assuming you have this font */
 }
 
 /* Buttons */
